@@ -89,9 +89,9 @@ input[type=text]{width:100%;min-width:0;font:16px var(--body);padding:12px;borde
 .seatchip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seatchip .seatno{width:26px;height:26px;flex:none;font-size:.78rem;background:var(--gold);color:var(--gold-ink)}
 .st0{top:0;left:50%;transform:translateX(-50%)}
-.st1{top:50%;right:0;transform:translateY(-50%)}
+.st1{top:50%;left:0;transform:translateY(-50%)}
 .st2{bottom:0;left:50%;transform:translateX(-50%)}
-.st3{top:50%;left:0;transform:translateY(-50%)}
+.st3{top:50%;right:0;transform:translateY(-50%)}
 .pairs{display:grid;gap:8px}
 .pair{text-align:left;border-radius:12px;border:1px solid var(--line);background:var(--felt-2);padding:12px 14px}
 .pair[aria-pressed="true"]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);background:var(--gold-soft)}
@@ -251,7 +251,7 @@ const nEnt=g=>g.partners?2:4;
 const teamOf=(g,s)=>g.teams[0].includes(s)?0:1;
 const entOfSeat=(g,s)=>g.partners?teamOf(g,s):s;
 const newCard=()=>({collector:null,doubled:false,holder:null,lead:null,leader:null});
-const kingdomOrder=f=>[f,(f+3)%4,(f+2)%4,(f+1)%4];
+const kingdomOrder=f=>[f,(f+1)%4,(f+2)%4,(f+3)%4];
 const typesFor=g=>g.mode==='complex'?['complex','trix']:['koh','queens','diamonds','collections','trix'];
 const keyOf=(k,t)=>k+':'+t;
 
@@ -444,7 +444,7 @@ function setupScreen(){
   h+='<div class="step"><h2><i>1</i>Game mode</h2><div class="modes">';
   modes.forEach(m=>{h+='<button class="modecard" data-act="mode" data-m="'+m[0]+'" data-p="'+(m[1]?1:0)+'" aria-pressed="'+(su.mode===m[0]&&su.partners===m[1])+'"><b>'+m[2]+'</b><small>'+m[3]+'</small></button>';});
   h+='</div></div>';
-  h+='<div class="step"><h2><i>2</i>Players and seating</h2><p class="dim" style="margin-bottom:10px">Enter players in clockwise order around the table.</p>';
+  h+='<div class="step"><h2><i>2</i>Players and seating</h2><p class="dim" style="margin-bottom:10px">Enter players in counterclockwise order around the table.</p>';
   if(store.recent.length){
     h+='<div class="eyebrow">Recent players</div><div class="chiprow">';
     store.recent.slice(0,8).forEach(n=>{const used=su.seats.some(s=>s.trim()===n);h+='<button class="chipb" data-act="recent" data-name="'+esc(n)+'"'+(used?' disabled':'')+'>'+esc(n)+'</button>';});
@@ -455,7 +455,7 @@ function setupScreen(){
       '<button class="mv" data-act="seat-up" data-i="'+i+'" aria-label="Move seat '+(i+1)+' earlier"'+(i===0?' disabled':'')+'>▲</button>'+
       '<button class="mv" data-act="seat-down" data-i="'+i+'" aria-label="Move seat '+(i+1)+' later"'+(i===3?' disabled':'')+'>▼</button></div>';
   }
-  h+='<div class="table"><div class="tcircle"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 14 A36 36 0 1 1 14 50" fill="none" stroke="#D6B25E" stroke-width="2.5" stroke-linecap="round"/><polygon points="14,40 8,52 20,52" fill="#D6B25E"/></svg>clockwise</div>';
+  h+='<div class="table"><div class="tcircle"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 14 A36 36 0 1 0 86 50" fill="none" stroke="#D6B25E" stroke-width="2.5" stroke-linecap="round"/><polygon points="86,40 92,52 80,52" fill="#D6B25E"/></svg>counter-<br>clockwise</div>';
   for(let i=0;i<4;i++)h+='<div class="seatchip st'+i+'"><span class="seatno">'+(i+1)+'</span><span data-sn="'+i+'">'+esc(nameOf(i))+'</span></div>';
   h+='</div></div>';
   if(su.partners){
