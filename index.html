@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trix Score</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500..800&family=Figtree:wght@400..800&display=swap">
+<style>html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<style>
+/* Layout concept: a card table. One sticky scoreboard, then the whole kingdom on a single scrolling page,
+   with each contract as a panel that opens in place. Playing-card faces mark the King and Queens. */
+:root{
+  --felt:#0E281F; --felt-2:#153629; --felt-3:#1D4636; --line:#2F5B48;
+  --cream:#F4ECD8; --dim:#A9BDB0; --gold:#D6B25E; --gold-ink:#1D1A0C; --gold-soft:rgba(214,178,94,.15);
+  --pos:#86D9A0; --neg:#F0908A; --card:#F7F1E1; --card-ink:#1B211D; --card-red:#B3261E; --suit-red:#F0908A;
+  --display:'Bodoni Moda','Didot','Bodoni 72',Georgia,serif;
+  --body:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--felt); color:var(--cream); font:16px/1.45 var(--body); -webkit-text-size-adjust:100%;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:12px 40px;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--felt);z-index:10}
+.wrap{max-width:620px;margin:0 auto}
+h1,h2,h3,p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button:active:not(:disabled){transform:scale(.97)}
+.red{color:var(--suit-red)}
+.dim{color:var(--dim)}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.num{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:600}
+
+/* buttons */
+.btn{min-height:52px;padding:12px 18px;border-radius:12px;border:1px solid var(--line);background:var(--felt-2);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);font-weight:700}
+.btn.primary:disabled{opacity:.35;cursor:not-allowed}
+.btn.danger{background:#7A2B27;border-color:#B04A44}
+.btn.sm{min-height:40px;padding:8px 14px;font-size:.88rem}
+.btn.block{display:flex;width:100%}
+.btn.ghost{background:transparent}
+.linkbtn{background:none;border:0;color:var(--gold);text-decoration:underline;text-underline-offset:3px;padding:6px 0;font-weight:600}
+
+/* topbar */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.bar .gname{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;text-align:center}
+
+/* home */
+.hero{padding:26px 0 8px;text-align:center}
+.mark{font:700 3.4rem/1 var(--display);letter-spacing:.02em}
+.suits{margin-top:6px;letter-spacing:.5em;font-size:1.1rem}
+.sub{color:var(--dim);margin-top:8px}
+.stack{display:grid;gap:10px}
+.card-panel{background:var(--felt-2);border:1px solid var(--line);border-radius:14px;padding:14px}
+.gh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.gh b{display:block;overflow-wrap:anywhere}
+.gh small{color:var(--dim)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;margin:26px 0 10px}
+.sechead h2{font:700 1.3rem var(--display)}
+.warn{background:#4A2A18;border:1px solid #B8793F;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:.9rem}
+input[type=text]{width:100%;min-width:0;font:16px var(--body);padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--felt);color:var(--cream)}
+
+/* setup */
+.step{margin-top:22px}
+.step h2{font:700 1.2rem var(--display);display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.step h2 i{font:700 .85rem var(--body);font-style:normal;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--gold);color:var(--gold);display:grid;place-items:center}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modecard{text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--felt-2);min-width:0}
+.modecard b{display:block;font:700 1.05rem var(--display)}
+.modecard small{display:block;color:var(--dim);margin-top:4px;font-size:.8rem}
+.modecard[aria-pressed="true"]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);background:var(--gold-soft)}
+.seatrow{display:grid;grid-template-columns:30px minmax(0,1fr) 44px 44px;gap:6px;align-items:center;margin-bottom:8px}
+.seatno{width:30px;height:30px;border-radius:50%;background:var(--felt-3);display:grid;place-items:center;font-weight:700;font-size:.85rem}
+.mv{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--felt-2);font-size:1rem}
+.mv:disabled{opacity:.3}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.chipb{border:1px solid var(--line);background:var(--felt-2);border-radius:999px;padding:7px 13px;font-size:.88rem;font-weight:600}
+.chipb:disabled{opacity:.35}
+.table{position:relative;height:210px;margin:14px 0 4px}
+.tcircle{position:absolute;left:50%;top:50%;width:120px;height:120px;transform:translate(-50%,-50%);border-radius:50%;background:var(--felt-3);border:1px solid var(--line);display:grid;place-items:center;text-align:center;font-size:.7rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.tcircle svg{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px)}
+.seatchip{position:absolute;display:flex;align-items:center;gap:6px;background:var(--felt-2);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 5px;max-width:42%;font-weight:600;font-size:.9rem}
+.seatchip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seatchip .seatno{width:26px;height:26px;flex:none;font-size:.78rem;background:var(--gold);color:var(--gold-ink)}
+.st0{top:0;left:50%;transform:translateX(-50%)}
+.st1{top:50%;right:0;transform:translateY(-50%)}
+.st2{bottom:0;left:50%;transform:translateX(-50%)}
+.st3{top:50%;left:0;transform:translateY(-50%)}
+.pairs{display:grid;gap:8px}
+.pair{text-align:left;border-radius:12px;border:1px solid var(--line);background:var(--felt-2);padding:12px 14px}
+.pair[aria-pressed="true"]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);background:var(--gold-soft)}
+.pair small{display:block;color:var(--dim)}
+.tnames{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.orderprev{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--dim);font-size:.9rem}
+.orderprev b{color:var(--cream);background:var(--felt-3);border-radius:8px;padding:4px 9px}
+
+/* scoreboard */
+.sticky{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--felt);padding:8px 0 10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.sbd{display:grid;gap:6px}
+.sbd.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.sbd.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.sc{background:var(--felt-2);border:1px solid var(--line);border-radius:12px;padding:8px 9px;min-width:0}
+.sc.lead{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.sc .n{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc .m{font-size:.7rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc .v{font:700 1.55rem/1.15 var(--display);font-variant-numeric:tabular-nums}
+.n2 .sc .v{font-size:2.1rem}
+.sc .p{font-size:.68rem;color:var(--gold);font-weight:700;min-height:1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crown{color:var(--gold);font-size:.8rem;margin-right:3px}
+
+/* kingdom nav and head */
+.ktabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.ktab{border:1px solid var(--line);background:var(--felt-2);border-radius:12px;padding:8px 4px;min-width:0;text-align:center}
+.ktab small{display:block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.ktab span{display:block;font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ktab[aria-selected="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.ktab[aria-selected="true"] small{color:var(--gold-ink);opacity:.75}
+.ktab.dimtab{opacity:.6}
+.ktab .ck{color:var(--pos)}
+.ktab[aria-selected="true"] .ck{color:var(--gold-ink)}
+.khead{margin:18px 0 12px}
+.khead h2{font:700 1.9rem/1.15 var(--display);overflow-wrap:anywhere}
+.prog{height:6px;border-radius:999px;background:var(--felt-3);overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;background:var(--gold);border-radius:999px}
+.prog i.full{background:var(--pos)}
+.khead .meta{display:flex;justify-content:space-between;color:var(--dim);font-size:.85rem;margin-top:6px}
+
+/* contract panels */
+.cpanel{background:var(--felt-2);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.cpanel.open{border-color:var(--gold)}
+.chead{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;border:0;background:transparent;padding:12px 14px;text-align:left;min-height:68px}
+.chead:disabled{cursor:default}
+.ico{width:44px;height:44px;border-radius:10px;background:var(--felt-3);display:grid;place-items:center;font:700 1.05rem var(--display)}
+.ico svg{width:24px;height:24px}
+.ctitle{font-weight:700;font-size:1.05rem}
+.cstat{font-size:.85rem;color:var(--dim)}
+.cstat.ok{color:var(--pos)}
+.cstat.gold{color:var(--gold)}
+.chev{transition:transform .15s}
+.open .chev{transform:rotate(180deg)}
+.csum{padding:0 14px 14px}
+.dcells{display:grid;grid-template-columns:repeat(auto-fit,minmax(4.2rem,1fr));gap:6px}
+.dcell{background:var(--felt);border-radius:8px;padding:6px 8px;min-width:0}
+.dcell span{display:block;font-size:.7rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dcell b{font-variant-numeric:tabular-nums}
+.cbody{padding:2px 14px 16px;border-top:1px solid var(--line)}
+.lockmsg{background:var(--felt-2);border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;color:var(--dim)}
+
+/* scorers */
+.q{font:700 1.02rem var(--body);margin:16px 0 8px}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opt{min-height:58px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--felt-3);font-weight:700;font-size:1rem;min-width:0;overflow-wrap:anywhere}
+.opt small{display:block;font-weight:500;font-size:.75rem;opacity:.8}
+.opt[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.dbl{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:8px 16px;border-radius:999px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font-weight:800;font-size:1.05rem}
+.dbl[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink)}
+.kingrow{display:flex;align-items:center;gap:18px;margin-top:14px}
+.pcard{position:relative;width:62px;aspect-ratio:5/7;background:var(--card);color:var(--card-ink);border-radius:8px;display:block;font-family:var(--display);font-weight:700;flex:none}
+.pcard.r{color:var(--card-red)}
+.pcard .rk{position:absolute;top:5px;left:7px;font-size:1rem;line-height:1}
+.pcard .rk2{position:absolute;bottom:5px;right:7px;font-size:1rem;line-height:1;transform:rotate(180deg)}
+.pcard .st{position:absolute;inset:0;display:grid;place-items:center;font-size:1.9rem}
+.pcard.big{width:96px;border-radius:10px}
+.pcard.big .rk,.pcard.big .rk2{font-size:1.4rem}
+.pcard.big .st{font-size:2.8rem}
+.b2x{position:absolute;top:-8px;right:-8px;background:var(--gold);color:var(--gold-ink);font:800 .72rem var(--body);border-radius:999px;padding:2px 7px;box-shadow:0 0 0 2px var(--felt-2)}
+.qrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}
+.qtile{background:transparent;border:2px solid transparent;border-radius:12px;padding:6px 4px 6px;display:grid;justify-items:center;gap:6px;min-width:0}
+.qtile[aria-pressed="true"]{border-color:var(--gold);background:var(--gold-soft)}
+.qtile .pcard{width:100%;max-width:62px}
+.qtile small{font-size:.74rem;color:var(--dim);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.qtile.got small{color:var(--pos)}
+.qcount{margin-top:10px;font-weight:600;font-size:.92rem}
+.qpanel{margin-top:10px;background:var(--felt);border-radius:12px;padding:2px 12px 14px}
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px}
+.qhead b{font-size:1.05rem}
+.cnthead{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;gap:10px}
+.cnthead b{font:700 1.5rem var(--display)}
+.cnthead span{color:var(--dim);font-size:.88rem;text-align:right}
+.rows{display:grid;gap:8px;margin-top:10px}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) 58px 44px 58px;gap:8px;align-items:center;background:var(--felt);border-radius:12px;padding:6px 8px 6px 14px;min-height:68px}
+.crow .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .nm small{display:block;font-weight:500;color:var(--dim);font-size:.75rem;overflow:hidden;text-overflow:ellipsis}
+.crow .val{font:700 1.7rem var(--body);text-align:center;font-variant-numeric:tabular-nums}
+.cb{width:58px;height:56px;border-radius:12px;border:1px solid var(--line);background:var(--felt-3);font-size:1.7rem;line-height:1;font-weight:600}
+.cb:disabled{opacity:.3}
+.cb.plus{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.cb.plus:disabled{background:var(--felt-3);color:var(--cream);border-color:var(--line)}
+.placed{display:grid;gap:6px;margin-top:10px}
+.pl{display:flex;justify-content:space-between;align-items:center;background:var(--felt);border-radius:10px;padding:10px 14px;font-weight:600;gap:10px}
+.pl em{font-style:normal;color:var(--gold);width:2.2rem;font-weight:800}
+.pl span{flex:1;min-width:0;overflow-wrap:anywhere}
+.pl.auto{opacity:.8}
+.subsec{border:1px solid var(--line);border-radius:12px;margin-top:12px;background:var(--felt)}
+.subhead{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;background:transparent;border:0;padding:12px 14px;min-height:52px;text-align:left;font-weight:700}
+.subhead .cstat{font-weight:600}
+.subbody{padding:0 12px 14px}
+.check{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:6px}
+.check li{display:flex;align-items:center;gap:10px;font-size:.92rem}
+.check .dot{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--dim);flex:none}
+.check li.ok{color:var(--pos)}
+.check li.ok svg{flex:none}
+.check li span.d{color:var(--dim);margin-left:auto;text-align:right}
+.preview{margin-top:14px;background:var(--felt);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.preview .eyebrow{margin-bottom:8px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.nextk{margin-top:14px}
+.srow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:.88rem;color:var(--dim)}
+.srow b{font-weight:700}
+
+/* scorecard and results */
+.scwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--felt-2)}
+table.scd{width:100%;border-collapse:collapse;table-layout:fixed;font-size:.88rem}
+table.scd th,table.scd td{padding:8px 6px;text-align:right;border-top:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.scd th:first-child,table.scd td:first-child{text-align:left;width:34%;padding-left:12px}
+table.scd thead th{border-top:0;font-size:.78rem;color:var(--dim)}
+table.scd tr.kh td{background:var(--felt-3);font-weight:700;text-align:left;font-family:var(--display);font-size:.98rem}
+table.scd tr.tot td{font-weight:700}
+table.scd tr.run td{font-weight:800;background:var(--gold-soft)}
+table.scd td.leadcol{color:var(--gold)}
+.winner{text-align:center;padding:24px 14px;border:1px solid var(--gold);border-radius:16px;background:var(--gold-soft);margin-top:10px}
+.winner .cr{font-size:2rem;color:var(--gold)}
+.winner h2{font:700 2rem/1.15 var(--display);margin-top:4px;overflow-wrap:anywhere}
+.rank{display:grid;grid-template-columns:2.2rem minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--felt-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.rank .rk{font:700 1.3rem var(--display);color:var(--gold)}
+.rank .nm{font-weight:700;overflow-wrap:anywhere}
+.rank .nm small{display:block;font-weight:500;color:var(--dim)}
+.rank .sv{font:700 1.5rem var(--display);text-align:right;font-variant-numeric:tabular-nums}
+.rank .sv small{display:block;font:500 .75rem var(--body);color:var(--dim)}
+textarea.sharebox{width:100%;min-height:150px;background:var(--felt);color:var(--cream);border:1px solid var(--line);border-radius:10px;padding:10px;font:14px/1.4 var(--body);margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--cream);color:var(--felt);padding:10px 18px;border-radius:999px;font-weight:700;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+@media (max-width:380px){.mark{font-size:2.8rem}.crow{grid-template-columns:minmax(0,1fr) 52px 36px 52px}.cb{width:52px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+/*LOGIC*/
+const PTS=[200,150,100,50];
+const zeros=n=>Array(n).fill(0);
+const sum=a=>a.reduce((x,y)=>x+y,0);
+const nEnt=g=>g.partners?2:4;
+const teamOf=(g,s)=>g.teams[0].includes(s)?0:1;
+const entOfSeat=(g,s)=>g.partners?teamOf(g,s):s;
+const newCard=()=>({collector:null,doubled:false,holder:null,lead:null,leader:null});
+const kingdomOrder=f=>[f,(f+3)%4,(f+2)%4,(f+1)%4];
+const typesFor=g=>g.mode==='complex'?['complex','trix']:['koh','queens','diamonds','collections','trix'];
+const keyOf=(k,t)=>k+':'+t;
+
+function normCard(c){
+  if(!c.doubled){c.holder=null;c.lead=null;c.leader=null;return;}
+  if(c.holder==null||c.holder!==c.collector){c.lead=null;c.leader=null;}
+  if(c.lead!=='other')c.leader=null;
+  if(c.leader!=null&&c.leader===c.holder)c.leader=null;
+}
+// Points for one King or Queen. base is 75 or 25. collector is a player (individual) or a team (partners).
+function scoreCard(g,base,c){
+  const d=zeros(nEnt(g));
+  if(c.collector==null)return null;
+  const coll=c.collector;
+  if(!(g.doubling&&c.doubled)){d[coll]-=base;return d;}
+  if(g.partners){d[coll]-=2*base;d[1-coll]+=base;return d;}
+  if(c.holder==null)return null;
+  if(c.holder!==coll){d[coll]-=2*base;d[c.holder]+=base;return d;}
+  if(c.lead==null)return null;
+  if(c.lead==='self'){d[coll]-=base;return d;}
+  if(c.leader==null||c.leader===coll)return null;
+  d[coll]-=2*base;d[c.leader]+=base;return d;
+}
+function fullOrder(order){
+  const o=order.slice();
+  if(o.length===3){for(let s=0;s<4;s++)if(!o.includes(s))o.push(s);}
+  return o;
+}
+function scoreContract(g,type,data){
+  const n=nEnt(g),delta=zeros(n),items=[];
+  const add=a=>a.forEach((v,i)=>{delta[i]+=v;});
+  if(data.koh){
+    const c=data.koh,r=scoreCard(g,75,c);
+    if(r)add(r);
+    items.push({id:'koh',label:'King of Hearts',done:!!r,detail:r?'':(c.collector==null?'Pick who collected it':'Finish the doubling details')});
+  }
+  if(data.queens){
+    let assigned=0,complete=0;
+    data.queens.forEach(c=>{if(c.collector!=null)assigned++;const r=scoreCard(g,25,c);if(r){complete++;add(r);}});
+    items.push({id:'queens',label:'Queens',done:complete===4,detail:assigned<4?assigned+'/4 assigned':'Finish the doubling details'});
+  }
+  if(data.diamonds){
+    const a=data.diamonds,s=sum(a);add(a.map(x=>-10*x));
+    items.push({id:'diamonds',label:'Diamonds',done:s===13,detail:s+'/13 · '+(13-s)+' remaining'});
+  }
+  if(data.collections){
+    const a=data.collections,s=sum(a);add(a.map(x=>-15*x));
+    items.push({id:'collections',label:'Collections',done:s===13,detail:s+'/13 · '+(13-s)+' remaining'});
+  }
+  if(data.trix){
+    const o=data.trix,full=fullOrder(o),t=zeros(n);
+    full.forEach((s,i)=>{t[entOfSeat(g,s)]+=PTS[i];});add(t);
+    items.push({id:'trix',label:'Trix',done:o.length>=3,detail:o.length+'/3 chosen'});
+  }
+  return {delta,items,complete:items.every(i=>i.done)};
+}
+function blankData(g,type){
+  const n=nEnt(g);
+  const p={koh:()=>newCard(),queens:()=>[newCard(),newCard(),newCard(),newCard()],diamonds:()=>zeros(n),collections:()=>zeros(n),trix:()=>[]};
+  const parts=type==='complex'?['koh','queens','diamonds','collections']:[type];
+  const d={};parts.forEach(k=>{d[k]=p[k]();});return d;
+}
+const kDone=(g,k)=>typesFor(g).every(t=>g.done[keyOf(k,t)]);
+const gameDone=g=>[0,1,2,3].every(k=>kDone(g,k));
+function activeK(g){for(let k=0;k<4;k++)if(!kDone(g,k))return k;return -1;}
+function kingdomDelta(g,k,upto){
+  const t=zeros(nEnt(g));
+  Object.keys(g.done).forEach(key=>{
+    const [kk,type]=key.split(':');
+    if(upto?+kk<=k:+kk===k)scoreContract(g,type,g.done[key]).delta.forEach((v,i)=>{t[i]+=v;});
+  });
+  return t;
+}
+const totals=g=>kingdomDelta(g,3,true);
+function integrityErrors(g){
+  const bad=[];
+  for(let k=0;k<4;k++)if(kDone(g,k)&&sum(kingdomDelta(g,k,false))!==0)bad.push(k);
+  return bad;
+}
+/*END*/
+</script>
+<script>
+(()=>{
+'use strict';
+const KEY='trix-games-v2';
+const app=document.getElementById('app');
+const TNAME={koh:'King of Hearts',queens:'Queens',diamonds:'Diamonds',collections:'Collections',trix:'Trix',complex:'Complex'};
+const PAIRINGS=[[[0,2],[1,3]],[[0,1],[2,3]],[[0,3],[1,2]]];
+const CHECK='<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.5 10.5l3 3 6-6.5" fill="none" stroke="#0E281F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CHEV='<svg class="chev" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const SUIT={S:'♠︎',H:'♥︎',D:'♦︎',C:'♣︎'};
+const QS=['S','H','D','C'];
+const ICO={
+  koh:'K<span class="red">'+SUIT.H+'</span>',
+  queens:'Q'+SUIT.S,
+  diamonds:'<span class="red">'+SUIT.D+'</span>',
+  collections:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="11" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-9 9 12)"/><rect x="9" y="4" width="11" height="15" rx="2" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="1.6" transform="rotate(7 14 11)"/></svg>',
+  trix:'J'+SUIT.C,
+  complex:'<span style="font-size:.78rem;letter-spacing:-.05em">'+SUIT.S+'<span class="red">'+SUIT.H+SUIT.D+'</span>'+SUIT.C+'</span>'
+};
+
+/* ---------- storage ---------- */
+let store={games:[],recent:[]};
+let storeOK=true;
+try{
+  const raw=localStorage.getItem(KEY);
+  if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.games))store={games:s.games,recent:Array.isArray(s.recent)?s.recent:[]};}
+  localStorage.setItem(KEY+':probe','1');localStorage.removeItem(KEY+':probe');
+}catch(e){storeOK=false;}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){storeOK=false;}}
+
+/* ---------- ui state ---------- */
+const defaultSetup=()=>({mode:'classic',partners:false,seats:['','','',''],pairing:0,teamNames:['Team 1','Team 2'],doubling:true,first:null});
+const ui={screen:'home',gid:null,viewK:0,open:null,qsel:null,sub:{},undo:{},setup:defaultSetup(),renaming:null,confirmDel:null,confirmReset:false,toast:'',share:null};
+const G=()=>store.games.find(g=>g.id===ui.gid);
+
+/* ---------- helpers ---------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>n>0?'+'+n:n<0?'−'+Math.abs(n):'0';
+const tot=n=>n<0?'−'+Math.abs(n):String(n);
+const cls=n=>n>0?'pos':n<0?'neg':'';
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+const pv=s=>s===''?null:/^-?\d+$/.test(s)?+s:s;
+const ordinal=i=>['1st','2nd','3rd','4th'][i];
+const entLabel=(g,i)=>g.partners?g.teamNames[i]:g.seats[i];
+const entSub=(g,i)=>g.partners?g.teams[i].map(s=>g.seats[s]).join(' & '):'';
+const entItems=g=>[...Array(nEnt(g)).keys()].map(i=>({v:i,label:entLabel(g,i),sub:entSub(g,i)}));
+const seatItems=(g,ex)=>[0,1,2,3].filter(s=>s!==ex).map(s=>({v:s,label:g.seats[s]}));
+const modeLabel=g=>(g.mode==='complex'?'Complex':'Classic')+(g.partners?' Partners':' Individual');
+const touch=g=>{g.updated=Date.now();save();};
+const defaultName=()=>'Game · '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric'});
+function progress(g){const per=typesFor(g).length;return {done:Object.keys(g.done).length,total:per*4};}
+function standings(g){
+  const t=totals(g),n=nEnt(g);
+  const list=[...Array(n).keys()].map(i=>({i,v:t[i]})).sort((a,b)=>b.v-a.v||a.i-b.i);
+  list.forEach((x,idx)=>{x.rank=idx>0&&list[idx-1].v===x.v?list[idx-1].rank:idx+1;});
+  return list;
+}
+function winnerText(g){
+  const s=standings(g),top=s.filter(x=>x.rank===1);
+  return top.map(x=>entLabel(g,x.i)).join(' and ')+(top.length>1?' (tied)':'');
+}
+function cellsHTML(g,delta){
+  return '<div class="dcells">'+delta.map((v,i)=>'<div class="dcell"><span>'+esc(entLabel(g,i))+'</span><b class="'+cls(v)+'">'+fmt(v)+'</b></div>').join('')+'</div>';
+}
+const isLocked=(g,k)=>{
+  if(g.unlocked[k])return false;
+  for(let j=0;j<k;j++)if(!kDone(g,j))return !Object.keys(g.done).concat(Object.keys(g.drafts)).some(x=>x.split(':')[0]==k);
+  return false;
+};
+
+/* ---------- home ---------- */
+function homeScreen(){
+  const games=store.games.slice().sort((a,b)=>b.updated-a.updated);
+  const cont=games.find(g=>!gameDone(g));
+  let h='<div class="hero"><h1 class="mark">Trix</h1><div class="suits">♠ <span class="red">♥︎ ♦︎</span> ♣</div><p class="sub">A scorekeeper for the card table by Rad.</p></div>';
+  if(!storeOK)h+='<div class="warn">Saving is not available in this view. Your game stays open only while this page does.</div>';
+  h+='<div class="stack">';
+  if(cont){
+    const k=activeK(cont),p=progress(cont);
+    h+='<div class="card-panel"><span class="eyebrow">Continue game</span><div class="gh" style="margin-top:6px"><div><b>'+esc(cont.name)+'</b><small>'+modeLabel(cont)+' · Kingdom '+(k+1)+' of 4 · '+p.done+'/'+p.total+' contracts</small></div></div><button class="btn primary block" style="margin-top:12px" data-act="open-game" data-id="'+cont.id+'">Continue</button></div>';
+  }
+  h+='<button class="btn '+(cont?'':'primary ')+'block" data-act="new">New game</button>';
+  if(store.games.length)h+='<button class="btn block ghost" data-act="new-last">New game with the same players</button>';
+  h+='</div>';
+  h+='<div class="sechead"><h2>Game history</h2></div>';
+  if(!games.length)h+='<div class="card-panel dim">Finished and saved games will appear here.</div>';
+  games.forEach(g=>{
+    const done=gameDone(g);
+    h+='<div class="card-panel" style="margin-bottom:10px"><div class="gh"><div style="min-width:0;flex:1">';
+    if(ui.renaming===g.id)h+='<input type="text" id="renameInput" value="'+esc(g.name)+'" maxlength="40" aria-label="Game name">';
+    else h+='<b>'+esc(g.name)+'</b>';
+    h+='<small>'+modeLabel(g)+' · '+(done?'Finished · '+esc(winnerText(g))+' won':'Kingdom '+(activeK(g)+1)+' of 4')+'</small></div></div><div class="row">';
+    h+='<button class="btn sm" data-act="open-game" data-id="'+g.id+'">'+(done?'View':'Open')+'</button>';
+    if(ui.renaming===g.id)h+='<button class="btn sm primary" data-act="rename-save" data-id="'+g.id+'">Save name</button>';
+    else h+='<button class="btn sm" data-act="rename" data-id="'+g.id+'">Rename</button>';
+    h+=ui.confirmDel===g.id?'<button class="btn sm danger" data-act="del-game" data-id="'+g.id+'">Delete for good</button><button class="btn sm" data-act="del-cancel">Keep</button>':'<button class="btn sm" data-act="del-game" data-id="'+g.id+'">Delete</button>';
+    h+='</div></div>';
+  });
+  return h;
+}
+
+/* ---------- setup ---------- */
+const nameOf=i=>(ui.setup.seats[i]||'').trim()||'Player '+(i+1);
+const sn=i=>'<span data-sn="'+i+'">'+esc(nameOf(i))+'</span>';
+function setupScreen(){
+  const su=ui.setup;
+  const modes=[['classic',false,'Classic Individual','20 contracts, everyone for themselves'],['classic',true,'Classic Partners','20 contracts, two teams of two'],['complex',false,'Complex Individual','8 deals, penalties together then Trix'],['complex',true,'Complex Partners','8 deals, two teams of two']];
+  let h='<div class="bar"><button class="btn sm" data-act="home">‹ Home</button><span class="gname">New game</span><span style="width:70px"></span></div>';
+  h+='<div class="step"><h2><i>1</i>Game mode</h2><div class="modes">';
+  modes.forEach(m=>{h+='<button class="modecard" data-act="mode" data-m="'+m[0]+'" data-p="'+(m[1]?1:0)+'" aria-pressed="'+(su.mode===m[0]&&su.partners===m[1])+'"><b>'+m[2]+'</b><small>'+m[3]+'</small></button>';});
+  h+='</div></div>';
+  h+='<div class="step"><h2><i>2</i>Players and seating</h2><p class="dim" style="margin-bottom:10px">Enter players in clockwise order around the table.</p>';
+  if(store.recent.length){
+    h+='<div class="eyebrow">Recent players</div><div class="chiprow">';
+    store.recent.slice(0,8).forEach(n=>{const used=su.seats.some(s=>s.trim()===n);h+='<button class="chipb" data-act="recent" data-name="'+esc(n)+'"'+(used?' disabled':'')+'>'+esc(n)+'</button>';});
+    h+='</div>';
+  }
+  for(let i=0;i<4;i++){
+    h+='<div class="seatrow"><span class="seatno">'+(i+1)+'</span><input type="text" id="seat'+i+'" data-seat="'+i+'" value="'+esc(su.seats[i])+'" placeholder="Player '+(i+1)+'" maxlength="14" autocomplete="off" aria-label="Seat '+(i+1)+' name">'+
+      '<button class="mv" data-act="seat-up" data-i="'+i+'" aria-label="Move seat '+(i+1)+' earlier"'+(i===0?' disabled':'')+'>▲</button>'+
+      '<button class="mv" data-act="seat-down" data-i="'+i+'" aria-label="Move seat '+(i+1)+' later"'+(i===3?' disabled':'')+'>▼</button></div>';
+  }
+  h+='<div class="table"><div class="tcircle"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 14 A36 36 0 1 1 14 50" fill="none" stroke="#D6B25E" stroke-width="2.5" stroke-linecap="round"/><polygon points="14,40 8,52 20,52" fill="#D6B25E"/></svg>clockwise</div>';
+  for(let i=0;i<4;i++)h+='<div class="seatchip st'+i+'"><span class="seatno">'+(i+1)+'</span><span data-sn="'+i+'">'+esc(nameOf(i))+'</span></div>';
+  h+='</div></div>';
+  if(su.partners){
+    h+='<div class="step"><h2><i>3</i>Teams</h2><div class="pairs">';
+    PAIRINGS.forEach((p,pi)=>{
+      h+='<button class="pair" data-act="pairing" data-v="'+pi+'" aria-pressed="'+(su.pairing===pi)+'"><b>'+sn(p[0][0])+' &amp; '+sn(p[0][1])+'</b> vs <b>'+sn(p[1][0])+' &amp; '+sn(p[1][1])+'</b><small>'+(pi===0?'Partners sit opposite (usual)':'Seats '+(p[0][0]+1)+' &amp; '+(p[0][1]+1)+' together')+'</small></button>';
+    });
+    h+='</div><div class="tnames"><input type="text" id="tn0" data-team="0" value="'+esc(su.teamNames[0])+'" maxlength="16" aria-label="Team 1 name"><input type="text" id="tn1" data-team="1" value="'+esc(su.teamNames[1])+'" maxlength="16" aria-label="Team 2 name"></div></div>';
+  }
+  h+='<div class="step"><h2><i>'+(su.partners?4:3)+'</i>Doubling</h2><div class="seg2"><button class="modecard" data-act="dbl-setup" data-v="1" aria-pressed="'+su.doubling+'"><b>Doubling on</b><small>King of Hearts and queens</small></button><button class="modecard" data-act="dbl-setup" data-v="0" aria-pressed="'+!su.doubling+'"><b>Doubling off</b><small>Hide doubling controls</small></button></div></div>';
+  h+='<div class="step"><h2><i>'+(su.partners?5:4)+'</i>First kingdom</h2><p class="q" style="margin-top:0">Who was dealt the 7 of Hearts? <span class="red">♥︎</span>7</p><div class="choices">';
+  for(let i=0;i<4;i++)h+='<button class="opt" data-act="first" data-v="'+i+'" aria-pressed="'+(su.first===i)+'">'+sn(i)+'</button>';
+  h+='</div>';
+  if(su.first!=null){
+    h+='<p class="dim" style="margin-top:12px">Kingdoms rotate counterclockwise from there.</p><div class="orderprev">';
+    kingdomOrder(su.first).forEach((s,k)=>{h+=(k?'<span>→</span>':'')+'<b>'+(k+1)+' '+sn(s)+'</b>';});
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='<button class="btn primary block" style="margin-top:24px" data-act="start"'+(su.first==null?' disabled':'')+'>Start game</button>';
+  if(su.first==null)h+='<p class="dim" style="text-align:center;margin-top:8px;font-size:.88rem">Choose who holds the 7 of Hearts to begin.</p>';
+  return h;
+}
+function createGame(su){
+  const seats=su.seats.map((s,i)=>s.trim()||'Player '+(i+1));
+  return {id:uid(),name:defaultName(),created:Date.now(),updated:Date.now(),mode:su.mode,partners:su.partners,seats,
+    teams:PAIRINGS[su.pairing].map(t=>t.slice()),teamNames:[su.teamNames[0].trim()||'Team 1',su.teamNames[1].trim()||'Team 2'],
+    doubling:su.doubling,first:su.first,order:kingdomOrder(su.first),done:{},drafts:{},unlocked:{}};
+}
+
+/* ---------- game dashboard ---------- */
+function pendingDelta(g){
+  const key=ui.open;if(!key||!g.drafts[key])return null;
+  const type=key.split(':')[1],r=scoreContract(g,type,g.drafts[key]).delta;
+  const old=g.done[key]?scoreContract(g,type,g.done[key]).delta:zeros(r.length);
+  const p=r.map((v,i)=>v-old[i]);
+  return p.some(v=>v!==0)?p:null;
+}
+function scoreboardHTML(g){
+  const s=standings(g),t=totals(g),pend=pendingDelta(g),n=nEnt(g),any=Object.keys(g.done).length>0;
+  let h='<div class="sticky"><div class="sbd n'+n+'">';
+  s.forEach(x=>{
+    const lead=any&&x.rank===1&&s.some(y=>y.v!==x.v);
+    h+='<div class="sc'+(lead?' lead':'')+'"><div class="n">'+(lead?'<span class="crown">♛</span>':'')+esc(entLabel(g,x.i))+'</div>'+(g.partners?'<div class="m">'+esc(entSub(g,x.i))+'</div>':'')+
+      '<div class="v '+cls(t[x.i])+'">'+tot(t[x.i])+'</div><div class="p">'+(pend&&pend[x.i]!==0?fmt(pend[x.i])+' pending':'')+'</div></div>';
+  });
+  return h+'</div></div>';
+}
+function topbar(g){
+  return '<div class="bar"><button class="btn sm" data-act="home">‹ Home</button><span class="gname">'+esc(g.name)+'</span><button class="btn sm" data-act="scorecard">Scorecard</button></div>';
+}
+function kingdomTabs(g){
+  const act=activeK(g);
+  let h='<div class="ktabs" role="tablist">';
+  for(let k=0;k<4;k++){
+    const done=kDone(g,k);
+    h+='<button class="ktab'+(k>act&&act!==-1&&!g.unlocked[k]?' dimtab':'')+'" role="tab" data-act="ktab" data-k="'+k+'" aria-selected="'+(ui.viewK===k)+'"><small>Kingdom '+(k+1)+'</small><span>'+(done?'<span class="ck">✓</span> ':'')+esc(g.seats[g.order[k]])+'</span></button>';
+  }
+  return h+'</div>';
+}
+function pcard(rank,suit,o){
+  o=o||{};
+  const red=suit==='H'||suit==='D';
+  return '<span class="pcard'+(red?' r':'')+(o.big?' big':'')+'"><span class="rk">'+rank+'</span><span class="st">'+SUIT[suit]+'</span><span class="rk2">'+rank+'</span>'+(o.badge?'<span class="b2x">2×</span>':'')+'</span>';
+}
+const choice=(path,items,sel)=>'<div class="choices">'+items.map(it=>'<button class="opt" data-act="pick" data-path="'+path+'" data-val="'+it.v+'" aria-pressed="'+(sel===it.v)+'">'+esc(it.label)+(it.sub?'<small>'+esc(it.sub)+'</small>':'')+'</button>').join('')+'</div>';
+function resultLine(g,r){
+  if(!r)return '';
+  return '<div class="srow">'+r.map((v,i)=>v!==0?'<span>'+esc(entLabel(g,i))+' <b class="'+cls(v)+'">'+fmt(v)+'</b></span>':'').join('')+'</div>';
+}
+function doublingExtras(g,path,c){
+  if(!g.doubling||!c.doubled||g.partners)return '';
+  let h='<div class="q">Who held and doubled it?</div>'+choice(path+'.holder',seatItems(g),c.holder);
+  if(c.holder!=null&&c.holder===c.collector){
+    h+='<div class="q">Who led the trick?</div><div class="choices"><button class="opt" data-act="pick" data-path="'+path+'.lead" data-val="self" aria-pressed="'+(c.lead==='self')+'">'+esc(g.seats[c.holder])+' led it</button><button class="opt" data-act="pick" data-path="'+path+'.lead" data-val="other" aria-pressed="'+(c.lead==='other')+'">Another player led it</button></div>';
+    if(c.lead==='other')h+='<div class="q">Which player led?</div>'+choice(path+'.leader',seatItems(g,c.holder),c.leader);
+  }
+  return h;
+}
+const dblBtn=(path,c)=>'<button class="dbl" data-act="dbl" data-path="'+path+'" aria-pressed="'+c.doubled+'" aria-label="Double this card">2×</button>';
+function kingHTML(g,d){
+  const c=d.koh;
+  let h='<div class="kingrow">'+pcard('K','H',{big:true,badge:g.doubling&&c.doubled})+'<div>'+(g.doubling?dblBtn('koh',c):'')+'</div></div>';
+  h+='<div class="q">Who collected the King?</div>'+choice('koh.collector',entItems(g),c.collector);
+  h+=doublingExtras(g,'koh',c);
+  return h+resultLine(g,scoreCard(g,75,c));
+}
+function queensHTML(g,d){
+  const assigned=d.queens.filter(c=>c.collector!=null).length;
+  const sel=ui.qsel==null?Math.max(0,d.queens.findIndex(c=>c.collector==null)):ui.qsel;
+  let h='<div class="qrow">';
+  d.queens.forEach((c,i)=>{
+    h+='<button class="qtile'+(c.collector!=null?' got':'')+'" data-act="qsel" data-i="'+i+'" aria-pressed="'+(sel===i)+'" aria-label="Queen of '+['Spades','Hearts','Diamonds','Clubs'][i]+'">'+pcard('Q',QS[i],{badge:g.doubling&&c.doubled})+'<small>'+(c.collector!=null?esc(entLabel(g,c.collector)):'Unassigned')+'</small></button>';
+  });
+  const left=4-assigned;
+  h+='</div><div class="qcount">Queens assigned: '+assigned+'/4 · <span class="'+(left?'dim':'pos')+'">'+(left?left+(left===1?' queen remaining':' queens remaining'):'All assigned')+'</span></div>';
+  const c=d.queens[sel];
+  h+='<div class="qpanel"><div class="qhead"><b>Q<span class="'+(sel===1||sel===2?'red':'')+'">'+SUIT[QS[sel]]+'</span></b>'+(g.doubling?dblBtn('queens.'+sel,c):'')+'</div>';
+  h+='<div class="q" style="margin-top:10px">Who collected this queen?</div>'+choice('queens.'+sel+'.collector',entItems(g),c.collector);
+  h+=doublingExtras(g,'queens.'+sel,c);
+  h+=resultLine(g,scoreCard(g,25,c))+'</div>';
+  return h;
+}
+function counterHTML(g,key,arr,per,unit){
+  const n=sum(arr),left=13-n;
+  let h='<div class="cnthead"><b>'+n+'/13</b><span>'+(left?left+' remaining':'All '+unit+' assigned')+'</span></div><div class="prog"><i class="'+(left?'':'full')+'" style="width:'+(n/13*100)+'%"></i></div><div class="rows">';
+  entItems(g).forEach(it=>{
+    const v=arr[it.v];
+    h+='<div class="crow"><div class="nm">'+esc(it.label)+(it.sub?'<small>'+esc(it.sub)+'</small>':'<small class="'+cls(-per*v)+'">'+fmt(-per*v)+'</small>')+'</div>'+
+      '<button class="cb" data-act="step" data-key="'+key+'" data-i="'+it.v+'" data-d="-1" aria-label="Remove one for '+esc(it.label)+'"'+(v===0?' disabled':'')+'>−</button>'+
+      '<div class="val">'+v+'</div>'+
+      '<button class="cb plus" data-act="step" data-key="'+key+'" data-i="'+it.v+'" data-d="1" aria-label="Add one for '+esc(it.label)+'"'+(left===0?' disabled':'')+'>+</button></div>';
+  });
+  return h+'</div>';
+}
+function trixHTML(g,d){
+  const o=d.trix,full=fullOrder(o);
+  let h='';
+  if(o.length<3){
+    h+='<div class="q">Who finished '+['first','second','third'][o.length]+'?</div><div class="choices">'+[0,1,2,3].filter(s=>!o.includes(s)).map(s=>'<button class="opt" data-act="tpick" data-s="'+s+'">'+esc(g.seats[s])+(g.partners?'<small>'+esc(g.teamNames[teamOf(g,s)])+'</small>':'')+'</button>').join('')+'</div>';
+  }
+  if(full.length){
+    h+='<div class="placed">';
+    full.forEach((s,i)=>{h+='<div class="pl'+(i===3?' auto':'')+'"><em>'+ordinal(i)+'</em><span>'+esc(g.seats[s])+(i===3?' <small class="dim">(automatic)</small>':'')+'</span><b class="pos">+'+PTS[i]+'</b></div>';});
+    h+='</div>';
+    h+='<div class="actions"><button class="btn sm" data-act="tundo">Undo last</button><button class="btn sm" data-act="treset">Start over</button></div>';
+  }
+  if(full.length===4){
+    const t=zeros(nEnt(g));full.forEach((s,i)=>{t[entOfSeat(g,s)]+=PTS[i];});
+    h+=resultLine(g,t);
+  }
+  return h;
+}
+function partHTML(g,part,d){
+  if(part==='koh')return kingHTML(g,d);
+  if(part==='queens')return queensHTML(g,d);
+  if(part==='diamonds')return counterHTML(g,'diamonds',d.diamonds,10,'diamonds');
+  if(part==='collections')return counterHTML(g,'collections',d.collections,15,'tricks');
+  return trixHTML(g,d);
+}
+function checklistHTML(r){
+  return '<ul class="check">'+r.items.map(it=>it.done?'<li class="ok">'+CHECK+'<span>'+it.label+'</span></li>':'<li><span class="dot"></span><span>'+it.label+'</span><span class="d">'+esc(it.detail)+'</span></li>').join('')+'</ul>';
+}
+function scorerHTML(g,key,type,d){
+  const r=scoreContract(g,type,d),editing=!!g.done[key];
+  let h='<div class="cbody">';
+  if(type==='complex'){
+    const firstOpen=r.items.find(i=>!i.done);
+    h+=checklistHTML(r);
+    r.items.forEach(it=>{
+      const explicit=ui.sub[it.id];
+      const open=explicit!==undefined?explicit:(firstOpen?firstOpen.id===it.id:false);
+      h+='<div class="subsec"><button class="subhead" data-act="sub" data-id="'+it.id+'" data-open="'+open+'" aria-expanded="'+open+'"><span>'+it.label+'</span><span class="cstat'+(it.done?' ok':'')+'">'+(it.done?'Done':esc(it.detail))+'</span></button>';
+      if(open)h+='<div class="subbody">'+partHTML(g,it.id,d)+'</div>';
+      h+='</div>';
+    });
+  } else {
+    h+=partHTML(g,type,d);
+    if(!r.complete)h+='<p class="cstat gold" style="margin-top:14px">'+esc(r.items[0].detail)+'</p>';
+  }
+  if(r.complete){
+    h+='<div class="preview"><div class="eyebrow">Score changes'+(editing?' (replaces the earlier result)':'')+'</div>'+cellsHTML(g,r.delta)+'</div>';
+  }
+  h+='<button class="btn primary block" style="margin-top:14px" data-act="confirm" data-key="'+key+'"'+(r.complete?'':' disabled')+'>Confirm contract</button>';
+  h+='<div class="actions"><button class="btn sm" data-act="undo" data-key="'+key+'"'+((ui.undo[key]||[]).length?'':' disabled')+'>Undo</button><button class="btn sm" data-act="reset-draft" data-key="'+key+'">'+(editing?'Cancel edit':'Start over')+'</button></div>';
+  return h+'</div>';
+}
+function panelHTML(g,k,type,locked){
+  const key=keyOf(k,type),done=g.done[key],draft=g.drafts[key],open=ui.open===key&&!locked;
+  let stat,sc='';
+  if(locked){stat='Locked until earlier kingdoms finish';}
+  else if(draft&&done){stat='Editing';sc='gold';}
+  else if(done){stat='Completed';sc='ok';}
+  else if(draft){stat='In progress';sc='gold';}
+  else stat='Not played';
+  let h='<section class="cpanel'+(open?' open':'')+'"><button class="chead" data-act="open" data-key="'+key+'" aria-expanded="'+open+'"'+(locked||(done&&!draft)?' disabled':'')+'><span class="ico">'+ICO[type]+'</span><span><div class="ctitle">'+TNAME[type]+'</div><div class="cstat '+sc+'">'+(sc==='ok'?'Completed ':'')+(sc==='ok'?CHECK.replace('width="18" height="18"','width="14" height="14" style="vertical-align:-2px"'):stat)+'</div></span>'+((locked||(done&&!draft))?'<span></span>':CHEV)+'</button>';
+  if(done&&!draft&&!locked){
+    h+='<div class="csum">'+cellsHTML(g,scoreContract(g,type,done).delta)+'<div class="row"><button class="btn sm" data-act="edit" data-key="'+key+'">Edit result</button></div></div>';
+  }
+  if(open&&draft)h+=scorerHTML(g,key,type,draft);
+  return h+'</section>';
+}
+function gameScreen(g){
+  const vk=ui.viewK,locked=isLocked(g,vk),per=typesFor(g).length;
+  const doneN=typesFor(g).filter(t=>g.done[keyOf(vk,t)]).length;
+  let h=topbar(g);
+  if(!storeOK)h+='<div class="warn">Saving is not available in this view. Your game stays open only while this page does.</div>';
+  if(integrityErrors(g).length)h+='<div class="warn">Scoring check failed for kingdom '+(integrityErrors(g)[0]+1)+'. A finished kingdom should total zero. Check the entries for that kingdom.</div>';
+  h+=scoreboardHTML(g)+kingdomTabs(g);
+  h+='<div class="khead"><span class="eyebrow">Kingdom '+(vk+1)+' of 4'+(vk===activeK(g)?' · current':'')+'</span><h2>'+esc(g.seats[g.order[vk]])+'’s kingdom</h2><div class="prog"><i class="'+(doneN===per?'full':'')+'" style="width:'+(doneN/per*100)+'%"></i></div><div class="meta"><span>'+doneN+'/'+per+' complete</span><span>'+(doneN===per?'Finished':'')+'</span></div></div>';
+  if(locked)h+='<div class="lockmsg">This kingdom starts after '+esc(g.seats[g.order[Math.max(0,activeK(g))]])+'’s. <button class="linkbtn" data-act="unlock" data-k="'+vk+'">Score it anyway</button></div>';
+  typesFor(g).forEach(t=>{h+=panelHTML(g,vk,t,locked);});
+  if(doneN===per){
+    if(vk<3)h+='<button class="btn primary block nextk" data-act="next-k">Continue to next kingdom →</button>';
+    else if(gameDone(g))h+='<button class="btn primary block nextk" data-act="results">See final results</button>';
+  }
+  h+='<div class="row" style="margin-top:22px">';
+  h+=ui.confirmReset?'<span class="dim" style="align-self:center">Delete this game?</span><button class="btn sm danger" data-act="del-this">Delete</button><button class="btn sm" data-act="reset-no">Keep</button>':'<button class="btn sm ghost" data-act="reset">Delete this game</button>';
+  return h+'</div>';
+}
+
+/* ---------- scorecard and results ---------- */
+function scorecardScreen(g){
+  const n=nEnt(g),t=totals(g),max=Math.max(...t),any=Object.keys(g.done).length>0;
+  let h='<div class="bar"><button class="btn sm" data-act="back-game">‹ Dashboard</button><span class="gname">Scorecard</span>'+(gameDone(g)?'<button class="btn sm" data-act="results">Results</button>':'<span style="width:70px"></span>')+'</div>';
+  if(integrityErrors(g).length)h+='<div class="warn">Scoring check failed: a finished kingdom does not total zero.</div>';
+  h+='<div class="scwrap"><table class="scd"><thead><tr><th></th>'+[...Array(n).keys()].map(i=>'<th>'+esc(entLabel(g,i))+'</th>').join('')+'</tr></thead><tbody>';
+  for(let k=0;k<4;k++){
+    const finished=kDone(g,k);
+    h+='<tr class="kh"><td colspan="'+(n+1)+'">Kingdom '+(k+1)+' · '+esc(g.seats[g.order[k]])+(finished?' ✓':'')+'</td></tr>';
+    typesFor(g).forEach(type=>{
+      const d=g.done[keyOf(k,type)];
+      const delta=d?scoreContract(g,type,d).delta:null;
+      h+='<tr><td>'+TNAME[type]+'</td>'+[...Array(n).keys()].map(i=>'<td class="'+(delta?cls(delta[i]):'dim')+'">'+(delta?fmt(delta[i]):'—')+'</td>').join('')+'</tr>';
+    });
+    if(Object.keys(g.done).some(x=>+x.split(':')[0]===k)){
+      const kd=kingdomDelta(g,k,false),run=kingdomDelta(g,k,true),rmax=Math.max(...run);
+      h+='<tr class="tot"><td>Kingdom total</td>'+kd.map(v=>'<td class="'+cls(v)+'">'+fmt(v)+'</td>').join('')+'</tr>';
+      h+='<tr class="run"><td>Total after K'+(k+1)+'</td>'+run.map(v=>'<td'+(v===rmax&&run.some(y=>y!==v)?' class="leadcol"':'')+'>'+tot(v)+'</td>').join('')+'</tr>';
+    }
+  }
+  h+='</tbody></table></div>';
+  if(any){
+    h+='<div class="sechead"><h2>'+(gameDone(g)?'Final scores':'Current scores')+'</h2></div>';
+    standings(g).forEach(x=>{h+='<div class="rank"><span class="rk">'+x.rank+'</span><span class="nm">'+esc(entLabel(g,x.i))+(g.partners?'<small>'+esc(entSub(g,x.i))+'</small>':'')+'</span><span class="sv '+cls(x.v)+'">'+tot(x.v)+'</span></div>';});
+  }
+  return h;
+}
+function shareText(g){
+  const s=standings(g);
+  let t='Trix · '+g.name+'\n'+modeLabel(g)+(g.doubling?' · doubling on':' · no doubling')+'\n';
+  t+=gameDone(g)?'Winner: '+winnerText(g)+'\n\n':'In progress\n\n';
+  s.forEach(x=>{t+=x.rank+'. '+entLabel(g,x.i)+(g.partners?' ('+entSub(g,x.i)+')':'')+': '+tot(x.v)+'\n';});
+  t+='\n';
+  for(let k=0;k<4;k++){if(kDone(g,k))t+='Kingdom '+(k+1)+' ('+g.seats[g.order[k]]+'): '+kingdomDelta(g,k,false).map((v,i)=>entLabel(g,i)+' '+fmt(v)).join(', ')+'\n';}
+  return t.trim();
+}
+function resultsScreen(g){
+  const s=standings(g),top=s.filter(x=>x.rank===1);
+  let h='<div class="bar"><button class="btn sm" data-act="back-game">‹ Dashboard</button><span class="gname">Final results</span><span style="width:70px"></span></div>';
+  h+='<div class="winner"><div class="cr">♛</div><span class="eyebrow">'+(top.length>1?'Tied for first':'Winner')+'</span><h2>'+esc(top.map(x=>entLabel(g,x.i)).join(' & '))+'</h2>'+(g.partners&&top.length===1?'<p class="dim" style="margin-top:4px">'+esc(entSub(g,top[0].i))+'</p>':'')+'<p class="num" style="margin-top:6px;font:700 1.4rem var(--display)">'+tot(top[0].v)+'</p></div>';
+  h+='<p class="dim" style="text-align:center;margin:10px 0 4px">'+modeLabel(g)+' · Doubling '+(g.doubling?'on':'off')+'</p>';
+  h+='<div class="sechead"><h2>Rankings</h2></div>';
+  s.forEach(x=>{
+    const diff=x.v-s[0].v;
+    h+='<div class="rank"><span class="rk">'+(s.filter(y=>y.rank===x.rank).length>1?'T-':'')+x.rank+'</span><span class="nm">'+esc(entLabel(g,x.i))+(g.partners?'<small>'+esc(entSub(g,x.i))+'</small>':'')+'</span><span class="sv '+cls(x.v)+'">'+tot(x.v)+'<small>'+(diff===0?'Leader':fmt(diff)+' behind')+'</small></span></div>';
+  });
+  h+='<div class="sechead"><h2>By kingdom</h2></div>';
+  for(let k=0;k<4;k++){h+='<div class="card-panel" style="margin-bottom:8px"><b>Kingdom '+(k+1)+' · '+esc(g.seats[g.order[k]])+'</b>'+cellsHTML(g,kingdomDelta(g,k,false)).replace('class="dcells"','class="dcells" style="margin-top:8px"')+'</div>';}
+  h+='<div class="stack" style="margin-top:18px"><button class="btn primary block" data-act="scorecard">View full scorecard</button><button class="btn block" data-act="share">Copy results summary</button>';
+  if(ui.share!==null)h+='<textarea class="sharebox" id="shareBox" readonly aria-label="Results summary">'+esc(ui.share)+'</textarea>';
+  h+='<button class="btn block" data-act="new">New game</button><button class="btn block ghost" data-act="home">Return home</button></div>';
+  return h;
+}
+
+/* ---------- render ---------- */
+function render(top){
+  const y=window.scrollY,g=G();
+  let h;
+  if(ui.screen==='setup')h=setupScreen();
+  else if(g&&ui.screen==='game')h=gameScreen(g);
+  else if(g&&ui.screen==='scorecard')h=scorecardScreen(g);
+  else if(g&&ui.screen==='results')h=resultsScreen(g);
+  else{ui.screen='home';h=homeScreen();}
+  app.innerHTML=h+(ui.toast?'<div class="toast" role="status">'+esc(ui.toast)+'</div>':'');
+  window.scrollTo(0,top?0:y);
+}
+function toast(t){ui.toast=t;render();setTimeout(()=>{ui.toast='';render();},1800);}
+
+/* ---------- draft mutation ---------- */
+function snap(key,d){const u=ui.undo[key]||(ui.undo[key]=[]);u.push(JSON.stringify(d));if(u.length>60)u.shift();}
+function mutate(fn){
+  const g=G(),key=ui.open;if(!g||!key||!g.drafts[key])return;
+  snap(key,g.drafts[key]);fn(g.drafts[key],g);touch(g);render();
+}
+function getAt(d,path){return path.split('.').reduce((o,k)=>o[k],d);}
+function openDraft(g,key,fromDone){
+  const type=key.split(':')[1];
+  if(!g.drafts[key])g.drafts[key]=fromDone?JSON.parse(JSON.stringify(g.done[key])):blankData(g,type);
+  ui.open=key;ui.qsel=null;ui.sub={};
+}
+
+/* ---------- events ---------- */
+app.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.seat!==undefined){
+    const i=+t.dataset.seat;ui.setup.seats[i]=t.value;
+    document.querySelectorAll('[data-sn="'+i+'"]').forEach(el=>{el.textContent=nameOf(i);});
+  } else if(t.dataset.team!==undefined)ui.setup.teamNames[+t.dataset.team]=t.value;
+});
+app.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const a=b.dataset.act,d=b.dataset;let top=false;const g=G();
+  switch(a){
+    case 'home':ui.screen='home';ui.share=null;top=true;break;
+    case 'new':ui.setup=defaultSetup();ui.screen='setup';top=true;break;
+    case 'new-last':{
+      const last=store.games.slice().sort((x,y)=>y.updated-x.updated)[0];
+      ui.setup=defaultSetup();if(last){ui.setup.seats=last.seats.slice();ui.setup.mode=last.mode;ui.setup.partners=last.partners;ui.setup.doubling=last.doubling;ui.setup.teamNames=last.teamNames.slice();}
+      ui.screen='setup';top=true;break;}
+    case 'open-game':{const gg=store.games.find(x=>x.id===d.id);ui.gid=d.id;ui.open=null;ui.share=null;ui.viewK=Math.max(0,activeK(gg));ui.screen=gameDone(gg)?'results':'game';top=true;break;}
+    case 'rename':ui.renaming=d.id;break;
+    case 'rename-save':{const inp=document.getElementById('renameInput'),gg=store.games.find(x=>x.id===d.id);if(inp&&gg&&inp.value.trim()){gg.name=inp.value.trim();save();}ui.renaming=null;break;}
+    case 'del-game':
+      if(ui.confirmDel===d.id){store.games=store.games.filter(x=>x.id!==d.id);save();ui.confirmDel=null;}else ui.confirmDel=d.id;break;
+    case 'del-cancel':ui.confirmDel=null;break;
+    /* setup */
+    case 'mode':ui.setup.mode=d.m;ui.setup.partners=d.p==='1';break;
+    case 'recent':{const i=ui.setup.seats.findIndex(s=>!s.trim());if(i>-1)ui.setup.seats[i]=d.name;break;}
+    case 'seat-up':case 'seat-down':{
+      const i=+d.i,j=a==='seat-up'?i-1:i+1,s=ui.setup.seats;
+      if(j>=0&&j<4){[s[i],s[j]]=[s[j],s[i]];ui.setup.first=null;}break;}
+    case 'pairing':ui.setup.pairing=+d.v;break;
+    case 'dbl-setup':ui.setup.doubling=d.v==='1';break;
+    case 'first':ui.setup.first=+d.v;break;
+    case 'start':{
+      const gm=createGame(ui.setup);
+      store.games.push(gm);
+      gm.seats.forEach(n=>{store.recent=[n,...store.recent.filter(x=>x!==n)];});
+      store.recent=store.recent.slice(0,12);
+      save();ui.gid=gm.id;ui.viewK=0;ui.open=null;ui.screen='game';top=true;break;}
+    /* game navigation */
+    case 'ktab':ui.viewK=+d.k;ui.open=null;break;
+    case 'unlock':g.unlocked[+d.k]=true;touch(g);break;
+    case 'next-k':ui.viewK=Math.min(3,ui.viewK+1);ui.open=null;top=true;break;
+    case 'scorecard':ui.screen='scorecard';top=true;break;
+    case 'back-game':ui.screen='game';top=true;break;
+    case 'results':ui.screen='results';top=true;break;
+    case 'reset':ui.confirmReset=true;break;
+    case 'reset-no':ui.confirmReset=false;break;
+    case 'del-this':store.games=store.games.filter(x=>x.id!==g.id);save();ui.confirmReset=false;ui.screen='home';top=true;break;
+    case 'share':{
+      const txt=shareText(g);
+      ui.share=txt;
+      try{navigator.clipboard.writeText(txt).then(()=>toast('Summary copied')).catch(()=>{render();const el=document.getElementById('shareBox');if(el)el.select();});}
+      catch(x){render();const el=document.getElementById('shareBox');if(el)el.select();}
+      break;}
+    /* contracts */
+    case 'open':
+      if(ui.open===d.key){ui.open=null;}
+      else openDraft(g,d.key,false);
+      break;
+    case 'edit':openDraft(g,d.key,true);touch(g);break;
+    case 'sub':ui.sub[d.id]=d.open!=='true';break;
+    case 'qsel':ui.qsel=+d.i;break;
+    case 'pick':mutate((dr)=>{
+      const seg=d.path.split('.'),last=seg.pop(),obj=getAt(dr,seg.join('.')),val=pv(d.val);
+      obj[last]=obj[last]===val?null:val;
+      normCard(obj);
+      if(last==='collector'&&seg[0]==='queens'&&obj.doubled===false&&obj.collector!=null){
+        const nx=dr.queens.findIndex(c=>c.collector==null);if(nx>-1)ui.qsel=nx;
+      }
+    });return;
+    case 'dbl':mutate((dr)=>{const c=getAt(dr,d.path);c.doubled=!c.doubled;normCard(c);});return;
+    case 'step':mutate((dr)=>{
+      const arr=dr[d.key],i=+d.i,dl=+d.d;
+      if(arr[i]+dl>=0&&sum(arr)+dl<=13)arr[i]+=dl;
+    });return;
+    case 'tpick':mutate((dr)=>{const s=+d.s;if(dr.trix.length<3&&!dr.trix.includes(s))dr.trix.push(s);});return;
+    case 'tundo':mutate((dr)=>{dr.trix.pop();});return;
+    case 'treset':mutate((dr)=>{dr.trix=[];});return;
+    case 'undo':{
+      const u=ui.undo[d.key];
+      if(u&&u.length){g.drafts[d.key]=JSON.parse(u.pop());touch(g);}
+      break;}
+    case 'reset-draft':
+      delete g.drafts[d.key];ui.undo[d.key]=[];ui.open=null;touch(g);break;
+    case 'confirm':{
+      const type=d.key.split(':')[1],dr=g.drafts[d.key];
+      if(!dr||!scoreContract(g,type,dr).complete)return;
+      const wasDone=gameDone(g);
+      g.done[d.key]=JSON.parse(JSON.stringify(dr));
+      delete g.drafts[d.key];ui.undo[d.key]=[];ui.open=null;touch(g);
+      if(!wasDone&&gameDone(g)){ui.screen='results';top=true;}
+      break;}
+  }
+  render(top);
+});
+app.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.id==='renameInput'){const b=app.querySelector('[data-act="rename-save"]');if(b)b.click();}
+});
+
+render(true);
+})();
+</script>
+
+</body>
+</html>
